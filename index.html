@@ -181,6 +181,12 @@ input.note::placeholder{color:#B9C4CD}
 .pchip b{color:var(--c-food);margin-left:5px;font-weight:700}
 .pchip:active{background:#ECF0EA}
 .undo{border:0;background:none;font:inherit;font-size:13px;color:var(--mute);text-decoration:underline;padding:0;cursor:pointer}
+/* 수면 */
+.slp{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:15px 17px 4px}
+.slp label{font-size:13px;color:var(--mute);display:flex;flex-direction:column;gap:6px}
+.shrs{padding:10px 17px 14px;font-size:15px;color:var(--mute);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.shrs b{font-size:20px;color:var(--c-water)}
+.shrs span{font-size:13px}
 footer{padding:18px 20px 30px;text-align:center;font-size:12.5px;color:var(--faint);line-height:1.7}
 
 /* ══ 운동 실행 오버레이 ══════════════ */
@@ -498,7 +504,7 @@ function parseVol(v){
 const TABS = [
   {id:'move', label:'운동', color:'--c-move',  tint:'#EAEEF2'},
   {id:'food', label:'식단', color:'--c-food',  tint:'#ECF0EA'},
-  {id:'water',label:'물',   color:'--c-water', tint:'#E8EFF3'},
+  {id:'water',label:'물·잠',   color:'--c-water', tint:'#E8EFF3'},
   {id:'read', label:'독서', color:'--c-read',  tint:'#F0EAEF'},
   {id:'eng',  label:'영어', color:'--c-eng',   tint:'#F2EDE7'}
 ];
@@ -570,6 +576,21 @@ const NUTS = [['채소 두 접시','점심·저녁 한 접시씩. 밥보다 먼�
               ['칼슘 한 가지','우유·두부·멸치·치즈 중 하나. 체성분에서 무기질이 적게 나왔어'],
               ['과일 한 줌','사과 반 개나 베리 한 줌이면 충분해'],
               ['영양제','평소 먹는 것 그대로']];
+/* 수면 — 일어난 날짜에 기록 */
+const SLEEPS = [['자기 1시간 전 폰 내려놓기','침대에선 폰 대신 책. 독서 20분이랑 같이 하면 딱이야'],
+                ['오후 2시 이후 커피 안 마시기','카페인은 6시간 넘게 몸에 남아']];
+function sleepHrs(s){
+  if(!s.sBed||!s.sWake) return 0;
+  const [bh,bm]=s.sBed.split(':').map(Number), [wh,wm]=s.sWake.split(':').map(Number);
+  let m = (wh*60+wm) - (bh*60+bm); if(m<=0) m += 1440;
+  return m/60;
+}
+function sleepAvg(d){
+  let t=0,n=0;
+  for(let i=0;i<7;i++){ const x=new Date(d); x.setDate(d.getDate()-i); const h=sleepHrs(load(key(x))); if(h){t+=h;n++;} }
+  return n>=2 ? t/n : 0;
+}
+function fmtH(h){ const m=Math.round(h*60); return Math.floor(m/60)+'시간'+(m%60?' '+(m%60)+'분':''); }
 /* ═══ 렌더 ═══════════════════════════ */
 function isStrengthDay(d, s){
   if(s.forceMove) return true;
@@ -627,6 +648,15 @@ function render(){
   for(let i=0;i<8;i++) h += '<div class="glass'+(i<w?' on':'')+'" data-g="'+(i+1)+'">'+(i+1)+'</div>';
   h += '</div><div class="wcount">'+w+' / 8잔</div>'+
        '<p class="tip">한 번에 많이보다 자주 조금씩. 커피와 차는 잔 수에 안 넣는 게 계산이 편해.</p></div>';
+  const sh = sleepHrs(s), avg = sleepAvg(cur);
+  h += '<div class="card"><h2>수면<span class="badge">7시간 이상</span></h2>'+
+       '<div class="slp"><label>잔 시간<input type="time" class="note" id="sBed" value="'+esc(s.sBed||'')+'"></label>'+
+       '<label>일어난 시간<input type="time" class="note" id="sWake" value="'+esc(s.sWake||'')+'"></label></div>'+
+       '<div class="shrs">'+'<div>'+(sh?'<b>'+fmtH(sh)+'</b> 잤어':'어젯밤 잔 시간을 적어줘')+'</div>'+
+       (avg?'<span>최근 7일 평균 '+fmtH(avg)+'</span>':'')+'</div>';
+  SLEEPS.forEach((n,i)=> h += row('slp'+i, s, n[0], n[1], ''));
+  h += '<p class="tip">'+(sh && sh<6?'<b>오늘은 입맛이 더 당길 수 있어.</b> 잠이 부족하면 배고픔 호르몬이 올라가거든. 당기는 건 몸 탓이니까 단백질 먼저 먹고 넘기자.':
+       '잠이 7시간보다 짧은 날은 다음 날 입맛이 확 당겨. 체중 유지엔 잠이 식단만큼 중요해.')+'</p></div>';
   document.getElementById('p-water').innerHTML = h;
   /* 독서 */
   h = '<div class="card"><h2>독서<span class="badge">하루 20분</span></h2>' +
@@ -676,7 +706,7 @@ function paintTabs(s, strength, moveCount){
   const done = {
     move:  strength ? sessionDone(cur) : count(s,'rest',moveCount)===moveCount,
     food:  protTotal(s) >= PROT_TARGET,
-    water: (s.water|0)>=8,
+    water: (s.water|0)>=8 && sleepHrs(s)>=7,
     read:  !!s.read0,
     eng:   !!s.eng0
   };
@@ -719,6 +749,10 @@ function bind(k){
   document.querySelectorAll('.glass').forEach(el=>{
     el.onclick = ()=>{ const s=load(k); const g=+el.dataset.g;
       s.water = (s.water===g) ? g-1 : g; save(k,s); render(); };
+  });
+  ['sBed','sWake'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.onchange = ()=>{ const s=load(k); s[id]=el.value; save(k,s); render(); };
   });
   ['foodNote','readNote','engNote'].forEach(id=>{
     const el = document.getElementById(id);
