@@ -804,7 +804,7 @@ function bind(k){
     const el = document.getElementById(id);
     if(el) el.oninput = ()=>{ const s=load(k); s[id]=el.value; save(k,s); };
   });
-  document.querySelectorAll('.pchip').forEach(el=>{
+  document.querySelectorAll('.pchip[data-p]').forEach(el=>{
     el.onclick = ()=>{ const s=load(k); (s.prot=s.prot||[]).push(PFOODS[+el.dataset.p][1]); save(k,s); render(); };
   });
   const pu = document.getElementById('pUndo');
